@@ -1,8 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useSignMessage } from "wagmi";
-import { sign } from "crypto";
 
 export default function Page() {
   const [message, setMessage] = useState<string>("");
@@ -13,7 +12,7 @@ export default function Page() {
     { rank: string; suit: string }[]
   >([]);
   const [score, setScore] = useState<number>(0);
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const [isSigned, setIsSigned] = useState<boolean>(false);
   const { signMessageAsync } = useSignMessage();
 
