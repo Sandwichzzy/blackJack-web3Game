@@ -1,5 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount, useSignMessage } from "wagmi";
+import { sign } from "crypto";
 
 export default function Page() {
   const [message, setMessage] = useState<string>("");
@@ -10,23 +13,23 @@ export default function Page() {
     { rank: string; suit: string }[]
   >([]);
   const [score, setScore] = useState<number>(0);
+  const { address, isConnected } = useAccount();
+  const [isSigned, setIsSigned] = useState<boolean>(false);
+  const { signMessageAsync } = useSignMessage();
 
-  useEffect(() => {
-    const initGame = async () => {
-      const response = await fetch("/api", { method: "GET" });
-      const data = await response.json();
-      setPlayerHand(data.playerHand);
-      setDealerHand(data.dealerHand);
-      setMessage(data.message);
-      setScore(data.score);
-    };
-    initGame();
-  }, []);
+  const initGame = async () => {
+    const response = await fetch(`/api?address=${address}`, { method: "GET" });
+    const data = await response.json();
+    setPlayerHand(data.playerHand);
+    setDealerHand(data.dealerHand);
+    setMessage(data.message);
+    setScore(data.score);
+  };
 
   async function handleHit() {
     const response = await fetch("/api", {
       method: "POST",
-      body: JSON.stringify({ action: "hit" }),
+      body: JSON.stringify({ action: "hit", address }),
     });
     const data = await response.json();
     setPlayerHand(data.playerHand);
@@ -37,7 +40,7 @@ export default function Page() {
   async function handleStand() {
     const response = await fetch("/api", {
       method: "POST",
-      body: JSON.stringify({ action: "stand" }),
+      body: JSON.stringify({ action: "stand", address }),
     });
     const data = await response.json();
     setPlayerHand(data.playerHand);
@@ -46,7 +49,7 @@ export default function Page() {
     setScore(data.score);
   }
   async function handleReset() {
-    const response = await fetch("/api", { method: "GET" });
+    const response = await fetch(`/api?address=${address}`, { method: "GET" });
     const data = await response.json();
     setPlayerHand(data.playerHand);
     setDealerHand(data.dealerHand);
@@ -54,8 +57,36 @@ export default function Page() {
     setScore(data.score);
   }
 
+  async function handleSign() {
+    const message = `Welcome to web3 game black jack at ${new Date().toString()}`;
+    const signature = await signMessageAsync({ message });
+    const response = await fetch("/api", {
+      method: "POST",
+      body: JSON.stringify({ action: "auth", address, message, signature }),
+    });
+    if (response.status === 200) {
+      setIsSigned(true);
+      initGame();
+    }
+  }
+
+  if (!isSigned) {
+    return (
+      <div className="flex flex-col gap-2 items-center justify-center h-screen bg-gray-300">
+        <ConnectButton />
+        <button
+          onClick={handleSign}
+          className="border-black bg-amber-50 p-2 rounded-md"
+        >
+          Sign with your wallet
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-2 items-center justify-center h-screen bg-gray-300">
+      <ConnectButton />
+
       <h1 className="text-4xl bold">Welcome to Web3 Game Black Jack</h1>
       <h2
         className={`text-2xl bold mt-2 ${

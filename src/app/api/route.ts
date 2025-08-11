@@ -6,6 +6,7 @@ import {
   PutCommand,
   GetCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { verifyMessage } from "viem";
 
 //初始化DynamoDB客户端
 const client = new DynamoDBClient({
@@ -19,7 +20,6 @@ const client = new DynamoDBClient({
 const docClient = DynamoDBDocumentClient.from(client);
 
 const TABLE_NAME = "blackJack";
-const defaultPlayer = "defaultPlayer";
 
 async function writeScore(player: string, score: number): Promise<void> {
   const params = {
@@ -128,7 +128,16 @@ function calculateHandValue(hand: Card[]) {
   return value;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const address = url.searchParams.get("address");
+
+  if (!address) {
+    return new Response(JSON.stringify({ message: "Address is required" }), {
+      status: 400,
+    });
+  }
+
   //reset the game state
   gameState.playerHand = [];
   gameState.dealerHand = [];
@@ -143,7 +152,7 @@ export async function GET() {
   gameState.message = "";
 
   try {
-    const data = await readScore(defaultPlayer);
+    const data = await readScore(address);
     if (!data) {
       gameState.score = 0;
     } else {
@@ -174,7 +183,26 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { action } = await request.json();
+  const body = await request.json();
+  const { action, address } = body;
+
+  if (action === "auth") {
+    const { message, signature } = body;
+    const isValid = await verifyMessage({
+      address,
+      message,
+      signature,
+    });
+    if (!isValid) {
+      return new Response(JSON.stringify({ message: "Invalid signature" }), {
+        status: 400,
+      });
+    }
+    return new Response(JSON.stringify({ message: "Valid signature" }), {
+      status: 200,
+    });
+  }
+
   if (action === "hit") {
     //when hit is clicked, get a random card from the deck and add it to the player hand
     const [cards, newDeck] = getRandomCards(gameState.deck, 1);
@@ -241,7 +269,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await writeScore(defaultPlayer, gameState.score);
+    await writeScore(address, gameState.score);
   } catch (error) {
     console.error("Error writing score to DynamoDB:", error);
     return new Response(
