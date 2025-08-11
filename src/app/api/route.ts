@@ -7,6 +7,7 @@ import {
   GetCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { verifyMessage } from "viem";
+import jwt from "jsonwebtoken";
 
 //初始化DynamoDB客户端
 const client = new DynamoDBClient({
@@ -197,9 +198,32 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ message: "Invalid signature" }), {
         status: 400,
       });
+    } else {
+      const token = jwt.sign({ address }, process.env.JWT_SECRET || "", {
+        expiresIn: "1h",
+      });
+      return new Response(
+        JSON.stringify({ message: "Valid signature", jsonwebtoken: token }),
+        {
+          status: 200,
+        }
+      );
     }
-    return new Response(JSON.stringify({ message: "Valid signature" }), {
-      status: 200,
+  }
+
+  //check if the token is valid
+  const token = request.headers.get("Authorization")?.split(" ")[1];
+  if (!token) {
+    return new Response(JSON.stringify({ message: "Token is required" }), {
+      status: 401,
+    });
+  }
+  const decoded = jwt.verify(token, process.env.JWT_SECRET || "") as {
+    address: string;
+  };
+  if (decoded.address.toLowerCase() !== address.toLowerCase()) {
+    return new Response(JSON.stringify({ message: "Invalid token" }), {
+      status: 401,
     });
   }
 

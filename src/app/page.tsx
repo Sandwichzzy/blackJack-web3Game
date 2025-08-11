@@ -29,6 +29,10 @@ export default function Page() {
   async function handleHit() {
     const response = await fetch("/api", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("jwt") || ""}`,
+      },
       body: JSON.stringify({ action: "hit", address }),
     });
     const data = await response.json();
@@ -40,6 +44,10 @@ export default function Page() {
   async function handleStand() {
     const response = await fetch("/api", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("jwt") || ""}`,
+      },
       body: JSON.stringify({ action: "stand", address }),
     });
     const data = await response.json();
@@ -65,6 +73,8 @@ export default function Page() {
       body: JSON.stringify({ action: "auth", address, message, signature }),
     });
     if (response.status === 200) {
+      const { jsonwebtoken } = await response.json();
+      localStorage.setItem("jwt", jsonwebtoken);
       setIsSigned(true);
       initGame();
     }
