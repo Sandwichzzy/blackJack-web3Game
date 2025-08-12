@@ -105,7 +105,7 @@ contract FunctionsConsumerExample is FunctionsClient, ERC721URIStorage {
         s_lastError = err;
         int256 score = abi.decode(response, (int256));
         address player = reqIdToAddr[requestId];
-        if(score > 1000) {
+        if(score >= 1000) {
             safeMint(player, META_DATA);
         }
         emit Response(requestId, s_lastResponse, s_lastError);

@@ -2,6 +2,15 @@
 import { useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useSignMessage } from "wagmi";
+import {
+  parseAbi,
+  createPublicClient,
+  createWalletClient,
+  custom,
+  type PublicClient,
+  type WalletClient,
+} from "viem";
+import { avalancheFuji } from "viem/chains";
 
 export default function Page() {
   const [message, setMessage] = useState<string>("");
@@ -15,6 +24,8 @@ export default function Page() {
   const { address } = useAccount();
   const [isSigned, setIsSigned] = useState<boolean>(false);
   const { signMessageAsync } = useSignMessage();
+  const [publicClient, setPublicClient] = useState<PublicClient | null>(null);
+  const [walletClient, setWalletClient] = useState<WalletClient | null>(null);
 
   const initGame = async () => {
     const response = await fetch(`/api?address=${address}`, { method: "GET" });
@@ -23,6 +34,20 @@ export default function Page() {
     setDealerHand(data.dealerHand);
     setMessage(data.message);
     setScore(data.score);
+    if (typeof window !== "undefined" && window.ethereum) {
+      const publicClient = createPublicClient({
+        chain: avalancheFuji,
+        transport: custom(window.ethereum),
+      });
+      const walletClient = createWalletClient({
+        chain: avalancheFuji,
+        transport: custom(window.ethereum),
+      });
+      setPublicClient(publicClient);
+      setWalletClient(walletClient);
+    } else {
+      console.error("window.ethereum is not available");
+    }
   };
 
   async function handleHit() {
@@ -64,6 +89,34 @@ export default function Page() {
     setScore(data.score);
   }
 
+  async function handleSendTx() {
+    if (!publicClient || !walletClient || !address) return;
+
+    //get contract address
+    const contractAddress = process.env
+      .NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+    //get abi
+    const contractAbi = parseAbi([process.env.NEXT_PUBLIC_CONTRACT_ABI || ""]);
+    //Viem
+    //publicClient -> simulate -> sendTx
+    await publicClient.simulateContract({
+      address: contractAddress,
+      abi: contractAbi,
+      functionName: "sendRequest",
+      args: [[address], address],
+      account: address,
+    });
+    //walletClient ->writeContract
+    const txHash = await walletClient.writeContract({
+      address: contractAddress,
+      abi: contractAbi,
+      functionName: "sendRequest",
+      args: [[address], address],
+      account: address,
+      chain: avalancheFuji,
+    });
+    console.log("txHash:", txHash);
+  }
   async function handleSign() {
     const message = `Welcome to web3 game black jack at ${new Date().toString()}`;
     const signature = await signMessageAsync({ message });
@@ -104,7 +157,12 @@ export default function Page() {
       >
         Score: {score} <br /> {message}
       </h2>
-
+      <button
+        onClick={handleSendTx}
+        className="bg-blue-400 border-black rounded-md p-2"
+      >
+        GET NFT
+      </button>
       <div className="mt-4">
         <h2>Dealer's hand</h2>
         <div className="flex flex-row gap-2">
