@@ -96,7 +96,7 @@ const gameState: {
   deck: initialDeck,
   message: "",
   score: 0,
-};
+}; //最好不要用gamestate管理，直接和数据库交互
 
 function getRandomCards(deck: Card[], count: number) {
   const randomIndexSet = new Set<number>();
